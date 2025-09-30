@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ArtSnack — Dave iFrame Template</title>
+
+    <!-- ============ SEO 기본 ============ -->
+    <meta name="description" content="예술로 쉬는 5분 — 아트스낵 데모" />
+    <meta name="keywords" content="아트스낵, 예술, 명화, 클래식, 고전, 5분 감상" />
+
+    <!-- ============ OG (링크 미리보기) ============ -->
+    <meta property="og:title" content="아트스낵 — 예술로 쉬는 5분" />
+    <meta property="og:description" content="별이 반짝이는 밤, 짧은 예술의 순간을 경험하세요." />
+    <meta property="og:image" content="https://picsum.photos/1200/630" />
+    <meta property="og:url" content="https://example.com" />
+    <meta property="og:type" content="website" />
+
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React 18 (UMD) + ReactDOM + Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      html, body, #root { height: 100%; }
+      body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    </style>
+  </head>
+
+  <body class="min-h-screen bg-black">
+    <div id="root"></div>
+
+    <!-- =====================
+      DAVE iFRAME STANDARD CONFIG
+      - 여기 값만 바꿔도 대부분 수정 가능
+    ====================== -->
+    <script>
+      window.ARTSNACK_CONFIG = {
+        title: "오늘의 아트스낵",
+        subtitle: "예술로 쉬는 5분",
+        summary: "반 고흐의 <em>별이 빛나는 밤</em>은 고독과 희망이 공존하는 작품으로, 짧은 순간 깊은 감정을 불러일으킵니다.",
+        ctas: { play: "▶ 5분 듣기", more: "더 알아보기" },
+
+        colors: {
+          primary: "#C9A959",
+          foreground: "#FFFFFF",
+          background: "#000000",
+          card: "#111827",
+          border: "#374151"
+        },
+
+        assets: {
+          heroImage: "https://upload.wikimedia.org/wikipedia/commons/0/0a/Vincent_Willem_van_Gogh_128.jpg",
+          ogImage:   "https://picsum.photos/1200/630"
+        },
+
+        flags: {
+          showStars: true,
+          showMoon: true
+        }
+      };
+    </script>
+
+    <script type="text/babel">
+      const { useState, useRef, useEffect } = React;
+
+      function StarryLayer({ showStars = true, showMoon = true }){
+        if(!showStars && !showMoon) return null;
+        return (
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            {showStars && (
+              <>
+                <div className="w-full h-full bg-black animate-pulse opacity-70"></div>
+                {Array.from({length:50}).map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute bg-white rounded-full animate-ping"
+                    style={{
+                      width: (Math.random()*3+2) + "px",
+                      height: (Math.random()*3+2) + "px",
+                      top: (Math.random()*100) + "%",
+                      left: (Math.random()*100) + "%",
+                      animationDuration: (Math.random()*3+2) + "s"
+                    }}
+                  />
+                ))}
+              </>
+            )}
+            {showMoon && (
+              <div className="absolute top-10 right-10 w-20 h-20 bg-gray-200 rounded-full shadow-lg"></div>
+            )}
+          </div>
+        )
+      }
+
+      function ArtSnackPage(){
+        const cfg = window.ARTSNACK_CONFIG || {};
+        const [commentMode, setCommentMode] = useState(false);
+        const [comments, setComments] = useState([]); 
+        const idRef = useRef(1);
+        const [draft, setDraft] = useState(null);
+
+        const COLORS = { ...cfg.colors };
+        const ASSETS = { ...cfg.assets };
+        const CTAS   = { play:"▶ 5분 듣기", more:"더 알아보기", ...(cfg.ctas || {}) };
+
+        useEffect(() => {
+          function onKeyDown(e){ if(e.key === 'Escape') setDraft(null); }
+          window.addEventListener('keydown', onKeyDown);
+          return () => window.removeEventListener('keydown', onKeyDown);
+        }, []);
+
+        function handleCanvasClick(e) {
+          if (!commentMode) return;
+          const ignore = e.target.closest('[data-ignore-click]') || e.target.closest('[data-comment-card]');
+          if (ignore) return;
+          const targetEl = e.target;
+          const target = targetEl.getAttribute('data-role') || targetEl.tagName.toLowerCase();
+          const x = e.clientX + window.scrollX;
+          const y = e.clientY + window.scrollY;
+          setDraft({ x, y, target, text: '' });
+        }
+
+        function saveDraft(){
+          if(!draft || !draft.text?.trim()) { setDraft(null); return; }
+          const newComment = { id: idRef.current++, text: draft.text.trim(), x: draft.x, y: draft.y, target: draft.target };
+          setComments(prev => [...prev, newComment]);
+          setDraft(null);
+        }
+        function removeComment(id) {
+          setComments(prev => prev.filter(c => c.id !== id));
+        }
+
+        return (
+          <div
+            className="min-h-screen flex flex-col relative overflow-hidden"
+            style={{ background: COLORS.background || "#000" }}
+            onClick={handleCanvasClick}
+          >
+            <StarryLayer showStars={cfg.flags?.showStars} showMoon={cfg.flags?.showMoon} />
+
+            {/* Toolbar */}
+            <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50 flex items-center gap-2 bg-white/90 backdrop-blur px-3 py-2 rounded-2xl shadow" data-ignore-click>
+              <button
+                onClick={() => setCommentMode(v => !v)}
+                className={`px-3 py-1 rounded-xl border ${commentMode ? "bg-[#1D2D50] text-white":"bg-white text-[#1D2D50]"}`}
+              >
+                🗨️ 코멘트 모드 {commentMode ? "ON":"OFF"}
+              </button>
+            </div>
+
+            {/* Header */}
+            <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b"
+              style={{ borderColor: COLORS.border || "#374151" }}
+              data-role="header"
+            >
+              <h1 className="text-2xl font-serif" style={{ color: COLORS.foreground || "#fff" }} data-role="logo">
+                {cfg.subtitle || "ArtSnack"}
+              </h1>
+              <nav className="space-x-6" style={{ color: COLORS.foreground || "#fff" }} data-role="nav">
+                <a href="#" className="hover:underline">Home</a>
+                <a href="#" className="hover:underline">Archive</a>
+                <a href="#" className="hover:underline">About</a>
+              </nav>
+            </header>
+
+            {/* Main */}
+            <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-8" data-role="main">
+              <div
+                className="max-w-xl w-full shadow-lg rounded-2xl overflow-hidden"
+                style={{ background: COLORS.card || "#111827" }}
+                data-role="card"
+              >
+                <img
+                  src={ASSETS.heroImage}
+                  alt="Artwork"
+                  className="w-full h-64 object-cover"
+                  data-role="hero-image"
+                />
+                <div className="p-6 space-y-4">
+                  <h2 className="text-xl font-serif" style={{ color: COLORS.foreground || "#fff" }} data-role="title">
+                    {cfg.title || "오늘의 아트스낵"}
+                  </h2>
+                  <p className="leading-relaxed text-gray-300" data-role="summary">
+                    <span dangerouslySetInnerHTML={{ __html: cfg.summary || "" }} />
+                  </p>
+                  <div className="flex space-x-4" data-role="cta-group">
+                    <button
+                      className="rounded-xl px-4 py-2"
+                      style={{ background: "#fff", color:"#000" }}
+                      data-role="play-btn"
+                    >
+                      {CTAS.play}
+                    </button>
+                    <button
+                      className="rounded-xl px-4 py-2 border"
+                      style={{ borderColor: COLORS.border || "#374151", color: COLORS.foreground || "#fff" }}
+                      data-role="learnmore-btn"
+                    >
+                      {CTAS.more}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Note */}
+              <div className="max-w-xl w-full mt-6 space-y-4" data-role="feedback">
+                <textarea
+                  placeholder="오늘의 감상을 남겨보세요..."
+                  className="w-full h-28 p-3 rounded-xl"
+                  style={{ background: COLORS.background || "#000", color: COLORS.foreground || "#fff", border: `1px solid ${COLORS.border || "#374151"}` }}
+                  data-role="memo"
+                ></textarea>
+                <div className="flex justify-end">
+                  <button className="rounded-xl px-4 py-2" style={{ background: COLORS.primary || "#C9A959", color:"#000" }} data-role="save-btn">
+                    저장하기
+                  </button>
+                </div>
+              </div>
+            </main>
+
+            {/* Footer */}
+            <footer className="relative z-10 text-center py-6 border-t"
+              style={{ color: COLORS.foreground || "#fff", borderColor: COLORS.border || "#374151" }}
+              data-role="footer"
+            >
+              <p className="font-serif">“쉼을 예술로 회복하다”</p>
+            </footer>
+
+            {/* Draft modal */}
+            {commentMode && draft && (
+              <div className="fixed z-50 -translate-x-1/2 -translate-y-full" style={{ left: draft.x, top: draft.y }} data-comment-card>
+                <div className="bg-white/95 backdrop-blur rounded-xl border shadow max-w-sm w-[280px] p-3">
+                  <div className="text-xs text-gray-500 mb-1">target: {draft.target}</div>
+                  <textarea
+                    autoFocus
+                    value={draft.text}
+                    onChange={(e) => setDraft({ ...draft, text: e.target.value })}
+                    onKeyDown={(e) => { if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveDraft() }}
+                    placeholder="코멘트를 입력하세요 (⌘/Ctrl + Enter 저장)"
+                    className="w-full h-24 p-2 border rounded-lg"
+                  ></textarea>
+                  <div className="mt-2 flex items-center justify-end gap-2">
+                    <button className="text-xs underline" onClick={() => setDraft(null)}>취소</button>
+                    <button className="px-3 py-1 rounded-lg bg-[#C9A959] text-white" onClick={saveDraft}>저장</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Pins */}
+            {comments.map((c) => (
+              <div key={c.id} className="fixed z-40 -translate-x-1/2 -translate-y-full" style={{ left: c.x, top: c.y }} data-comment-card>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-[#C9A959] text-white text-xs flex items-center justify-center shadow">{c.id}</div>
+                  <div className="bg-white/95 backdrop-blur rounded-xl border px-3 py-2 shadow max-w-xs">
+                    <div className="text-xs text-gray-500 mb-1">target: {c.target}</div>
+                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{c.text}</div>
+                    <button className="mt-2 text-xs underline" onClick={() => removeComment(c.id)}>삭제</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<ArtSnackPage/>);
+    </script>
+  </body>
+</html>
